@@ -19,7 +19,6 @@ package kafka.server
 import java.io.{File, IOException}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
-
 import com.yammer.metrics.core.Gauge
 import kafka.api._
 import kafka.cluster.{Partition, Replica}
@@ -29,6 +28,7 @@ import kafka.log.{LogAppendInfo, LogManager}
 import kafka.message.{ByteBufferMessageSet, InvalidMessageException, Message, MessageSet}
 import kafka.metrics.KafkaMetricsGroup
 import kafka.utils._
+import org.I0Itec.zkclient.IZkChildListener
 import org.apache.kafka.common.errors.{OffsetOutOfRangeException, RecordBatchTooLargeException, ReplicaNotAvailableException, RecordTooLargeException,
 InvalidTopicException, ControllerMovedException, NotLeaderForPartitionException, CorruptRecordException, UnknownTopicOrPartitionException,
 InvalidTimestampException}
@@ -38,7 +38,6 @@ import org.apache.kafka.common.protocol.Errors
 import org.apache.kafka.common.requests.{LeaderAndIsrRequest, StopReplicaRequest, UpdateMetadataRequest}
 import org.apache.kafka.common.requests.ProduceResponse.PartitionResponse
 import org.apache.kafka.common.utils.{Time => JTime}
-
 import scala.collection._
 import scala.collection.JavaConverters._
 
@@ -123,9 +122,9 @@ class ReplicaManager(val config: KafkaConfig,
   private val lastIsrChangeMs = new AtomicLong(System.currentTimeMillis())
   private val lastIsrPropagationMs = new AtomicLong(System.currentTimeMillis())
 
-  val delayedProducePurgatory = new DelayedOperationPurgatory[DelayedProduce](
+  val delayedProducePurgatory = DelayedOperationPurgatory[DelayedProduce](
     purgatoryName = "Produce", config.brokerId, config.producerPurgatoryPurgeIntervalRequests)
-  val delayedFetchPurgatory = new DelayedOperationPurgatory[DelayedFetch](
+  val delayedFetchPurgatory = DelayedOperationPurgatory[DelayedFetch](
     purgatoryName = "Fetch", config.brokerId, config.fetchPurgatoryPurgeIntervalRequests)
 
   val leaderCount = newGauge(
@@ -395,7 +394,7 @@ class ReplicaManager(val config: KafkaConfig,
       BrokerTopicStats.getBrokerAllTopicsStats().totalProduceRequestRate.mark()
 
       // reject appending to internal topics if it is not allowed
-      if (Topic.InternalTopics.contains(topicPartition.topic) && !internalTopicsAllowed) {
+      if (Topic.isInternal(topicPartition.topic) && !internalTopicsAllowed) {
         (topicPartition, LogAppendResult(
           LogAppendInfo.UnknownLogAppendInfo,
           Some(new InvalidTopicException("Cannot append to internal topic %s".format(topicPartition.topic)))))
@@ -523,8 +522,12 @@ class ReplicaManager(val config: KafkaConfig,
             getReplicaOrException(topic, partition)
 
           // decide whether to only fetch committed data (i.e. messages below high watermark)
-          val maxOffsetOpt = if (readOnlyCommitted)
-            Some(localReplica.highWatermark.messageOffset)
+          val maxOffsetOpt = if (readOnlyCommitted) {
+            val maxOffset = localReplica.highWatermark.messageOffset
+            if(offset > maxOffset)
+              throw new OffsetOutOfRangeException("Request for offset %d beyond high watermark %d when reading from only committed offsets".format(offset, maxOffset))
+            Some(maxOffset)
+          }
           else
             None
 
