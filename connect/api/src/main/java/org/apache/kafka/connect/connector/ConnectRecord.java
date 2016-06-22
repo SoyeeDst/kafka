@@ -27,6 +27,10 @@ import org.apache.kafka.connect.data.Schema;
  * sources and sinks (topic, kafkaPartition, key, value). Although both implementations include a
  * notion of offset, it is not included here because they differ in type.
  * </p>
+ *
+ * <p>
+ * Please note that one date item corresponds to one object of this class
+ * </p>
  */
 @InterfaceStability.Unstable
 public abstract class ConnectRecord {

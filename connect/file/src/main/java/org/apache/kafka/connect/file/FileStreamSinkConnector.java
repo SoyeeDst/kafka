@@ -36,6 +36,7 @@ import java.util.Map;
 public class FileStreamSinkConnector extends SinkConnector {
 
     public static final String FILE_CONFIG = "file";
+    // Definition for configuration templates
     private static final ConfigDef CONFIG_DEF = new ConfigDef()
         .define(FILE_CONFIG, Type.STRING, Importance.HIGH, "Destination filename.");
 

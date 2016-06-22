@@ -97,6 +97,7 @@ public class KafkaOffsetBackingStore implements OffsetBackingStore {
     @Override
     public Future<Map<ByteBuffer, ByteBuffer>> get(final Collection<ByteBuffer> keys,
                                                    final Callback<Map<ByteBuffer, ByteBuffer>> callback) {
+        // Why not return the cached data directly?
         ConvertingFutureCallback<Void, Map<ByteBuffer, ByteBuffer>> future = new ConvertingFutureCallback<Void, Map<ByteBuffer, ByteBuffer>>(callback) {
             @Override
             public Map<ByteBuffer, ByteBuffer> convert(Void result) {

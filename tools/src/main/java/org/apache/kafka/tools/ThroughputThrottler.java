@@ -55,6 +55,7 @@ public class ThroughputThrottler {
     public ThroughputThrottler(long targetThroughput, long startMs) {
         this.startMs = startMs;
         this.targetThroughput = targetThroughput;
+        // sleep time per action
         this.sleepTimeNs = targetThroughput > 0 ?
                            NS_PER_SEC / targetThroughput :
                            Long.MAX_VALUE;
@@ -116,12 +117,14 @@ public class ThroughputThrottler {
                     }
                     wakeup = false;
                 }
+                // sleep finished, let's have a new journey again
                 sleepDeficitNs = 0;
             } catch (InterruptedException e) {
                 // If sleep is cut short, reduce deficit by the amount of
                 // time we actually spent sleeping
                 long sleepElapsedNs = System.nanoTime() - sleepStartNs;
                 if (sleepElapsedNs <= sleepDeficitNs) {
+                    // remember it for following compensation
                     sleepDeficitNs -= sleepElapsedNs;
                 }
             }
@@ -130,8 +133,11 @@ public class ThroughputThrottler {
 
     /**
      * Wakeup the throttler if its sleeping.
+     *
      */
     public void wakeup() {
+        // this throttle is not for current task thread
+        // generally this synchronized lock become useless at all.
         synchronized (this) {
             wakeup = true;
             this.notifyAll();

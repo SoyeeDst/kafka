@@ -38,6 +38,7 @@ public interface StatusBackingStore {
 
     /**
      * Set the state of the connector to the given value.
+     * put the ConnectorStatus to central repository or somewhere shared
      * @param status the status of the connector
      */
     void put(ConnectorStatus status);
@@ -48,6 +49,8 @@ public interface StatusBackingStore {
      * means that the store can provide higher assurance that another worker
      * hasn't concurrently written any conflicting data.
      * @param status the status of the connector
+     *
+     * Atomicity should be guaranteed during the operation.
      */
     void putSafe(ConnectorStatus status);
 

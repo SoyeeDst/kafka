@@ -49,6 +49,8 @@ import java.util.Objects;
  * same process, so the standalone herder implementation can immediately instantiate and start the connector and its
  * tasks.
  * </p>
+ *
+ * no coordination also implies no any status information was stored in Kafka topic to retain some status information for further working.
  */
 public interface Herder {
 

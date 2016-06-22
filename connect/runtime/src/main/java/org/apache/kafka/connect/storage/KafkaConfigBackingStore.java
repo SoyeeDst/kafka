@@ -144,7 +144,7 @@ import java.util.concurrent.TimeoutException;
  * Updates may continue to be applied (and callbacks invoked) in the background. Callers must take care that they are
  * using a consistent snapshot and only update when it is safe. In particular, if task configs are updated which require
  * synchronization across workers to commit offsets and update the configuration, callbacks and updates during the
- * rebalance must be deferred.
+ * rebalance must be deferred. (callbacks should be invoked after the rebalance action finishes?)
  * </p>
  */
 public class KafkaConfigBackingStore implements ConfigBackingStore {
@@ -191,9 +191,11 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
 
     private static final long READ_TO_END_TIMEOUT_MS = 30000;
 
+    // for multi-write operations
     private final Object lock;
     private boolean starting;
     private final Converter converter;
+    // open interface for notification when there is any change happening
     private UpdateListener updateListener;
 
     private String topic;
@@ -204,6 +206,7 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
     private Map<String, Integer> connectorTaskCounts = new HashMap<>();
     // Connector and task configs: name or id -> config map
     private Map<String, Map<String, String>> connectorConfigs = new HashMap<>();
+    // Task detailed configurations, connectiorTaskId can be used to identify one unique task.
     private Map<ConnectorTaskId, Map<String, String>> taskConfigs = new HashMap<>();
     // Set of connectors where we saw a task commit with an incomplete set of task config updates, indicating the data
     // is in an inconsistent state and we cannot safely use them until they have been refreshed.
@@ -213,10 +216,13 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
     private volatile long offset;
 
     // Connector -> Map[ConnectorTaskId -> Configs]
+    // It may impact the accuracy of offset above
     private final Map<String, Map<ConnectorTaskId, Map<String, String>>> deferredTaskUpdates = new HashMap<>();
 
+    // connectorId is the key
     private final Map<String, TargetState> connectorTargetStates = new HashMap<>();
 
+    // Backend configuration gateway to coordinate distributed connectors and tasks.
     public KafkaConfigBackingStore(Converter converter) {
         this.lock = new Object();
         this.starting = false;
@@ -246,6 +252,7 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
 
+        // KafkaBasedLog will always try to readToLogEnd
         configLog = createKafkaBasedLog(topic, producerProps, consumerProps, new ConsumeCallback());
     }
 
@@ -396,6 +403,7 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
             }
 
             // Read to end to ensure all the commit messages have been written
+            // Force to flush the producer records in Accumulator
             configLog.readToEnd().get(READ_TO_END_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             log.error("Failed to write root configuration to Kafka: ", e);
@@ -403,6 +411,12 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
         }
     }
 
+    /**
+     * Flush all the status in RAM to Kafka topic
+     * @param timeout max time to wait for the refresh to complete
+     * @param unit unit of timeout
+     * @throws TimeoutException
+     */
     @Override
     public void refresh(long timeout, TimeUnit unit) throws TimeoutException {
         try {
@@ -531,7 +545,9 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
                         deferredTaskUpdates.put(taskId.connector(), deferred);
                     }
                     log.debug("Storing new config for task " + taskId + " this will wait for a commit message before the new config will take effect. New config: " + newTaskConfig);
+                    // outstanding information until a commit message reaches
                     deferred.put(taskId, (Map<String, String>) newTaskConfig);
+                    // currently it is not the time to update listener, since it doesn't yet
                 }
             } else if (record.key().startsWith(COMMIT_TASKS_PREFIX)) {
                 String connectorName = record.key().substring(COMMIT_TASKS_PREFIX.length());
@@ -600,6 +616,7 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
                 }
 
                 if (!starting)
+                    // update the connector to upgrade profiles
                     updateListener.onTaskConfigUpdate(updatedTasks);
             } else {
                 log.error("Discarding config update record with invalid key: " + record.key());
@@ -660,6 +677,8 @@ public class KafkaConfigBackingStore implements ConfigBackingStore {
         // logic for writing configs ensures all the task configs are written (and reads them back) before writing the
         // commit message.
 
+        // idSet should be greater than expectedSize, since some outdated configuration were not cleaned up.
+        // or deactivated after one new commit comes
         if (idSet.size() < expectedSize)
             return false;
 

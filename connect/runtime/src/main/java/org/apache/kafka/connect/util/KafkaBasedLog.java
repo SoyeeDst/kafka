@@ -115,10 +115,14 @@ public class KafkaBasedLog<K, V> {
         this.time = time;
     }
 
+    /**
+     * start to produce or consumer the topic
+     */
     public void start() {
         log.info("Starting KafkaBasedLog with topic " + topic);
 
         producer = createProducer();
+        // All the partition assignment will be maintained by ConsumerCoordinator
         consumer = createConsumer();
 
         List<TopicPartition> partitions = new ArrayList<>();
@@ -128,9 +132,12 @@ public class KafkaBasedLog<K, V> {
         List<PartitionInfo> partitionInfos = null;
         long started = time.milliseconds();
         while (partitionInfos == null && time.milliseconds() - started < CREATE_TOPIC_TIMEOUT_MS) {
+            // get all partitions information of the whole topic
             partitionInfos = consumer.partitionsFor(topic);
             Utils.sleep(Math.min(time.milliseconds() - started, 1000));
         }
+
+        // topic meta data got failure.
         if (partitionInfos == null)
             throw new ConnectException("Could not look up partition metadata for offset backing store topic in" +
                     " allotted period. This could indicate a connectivity issue, unavailable topic partitions, or if" +
@@ -138,8 +145,11 @@ public class KafkaBasedLog<K, V> {
 
         for (PartitionInfo partition : partitionInfos)
             partitions.add(new TopicPartition(partition.topic(), partition.partition()));
+        // update the assignments
         consumer.assign(partitions);
 
+        // seek the the log end
+        // to ensure all the buffer to be clean
         readToLogEnd();
 
         thread = new WorkThread();
@@ -156,6 +166,9 @@ public class KafkaBasedLog<K, V> {
         synchronized (this) {
             stopRequested = true;
         }
+
+        // do not block on the select multiple IO
+        // until now, the consumer could not accept any message
         consumer.wakeup();
 
         try {
@@ -241,7 +254,7 @@ public class KafkaBasedLog<K, V> {
         // Always force reset to the beginning of the log since this class wants to consume all available log data
         consumerConfigs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-        // Turn off autocommit since we always want to consume the full log
+        // Turn off autocommit since we always want to consume the full log from the beginning
         consumerConfigs.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         return new KafkaConsumer<>(consumerConfigs);
     }
@@ -267,13 +280,17 @@ public class KafkaBasedLog<K, V> {
         // This approach to getting the current end offset is hacky until we have an API for looking these up directly
         Map<TopicPartition, Long> offsets = new HashMap<>();
         for (TopicPartition tp : assignment) {
+            // offset maintained in memory, the sequential read should begin from this position
             long offset = consumer.position(tp);
             offsets.put(tp, offset);
+            // seek stream
+            // seek end will impact on the offset in the following poll requests, reset the offsets in memory
             consumer.seekToEnd(singleton(tp));
         }
 
         Map<TopicPartition, Long> endOffsets = new HashMap<>();
         try {
+            // read from the trailing
             poll(0);
         } finally {
             // If there is an exception, even a possibly expected one like WakeupException, we need to make sure
@@ -283,6 +300,7 @@ public class KafkaBasedLog<K, V> {
                 long endOffset = consumer.position(tp);
                 if (endOffset > startOffset) {
                     endOffsets.put(tp, endOffset);
+                    // reset the pos and start with it in the following request
                     consumer.seek(tp, startOffset);
                 }
                 log.trace("Reading to end of log for {}: starting offset {} to ending offset {}", tp, startOffset, endOffset);
@@ -296,8 +314,11 @@ public class KafkaBasedLog<K, V> {
             while (it.hasNext()) {
                 Map.Entry<TopicPartition, Long> entry = it.next();
                 if (consumer.position(entry.getKey()) >= entry.getValue())
+                    // back to normal
                     it.remove();
                 else
+                    // still in bad status
+                    // try again later
                     break;
             }
         }
@@ -320,6 +341,7 @@ public class KafkaBasedLog<K, V> {
                         numCallbacks = readLogEndOffsetCallbacks.size();
                     }
 
+                    // if there is any numCallbacks, seek the end of stream
                     if (numCallbacks > 0) {
                         try {
                             readToLogEnd();
@@ -335,9 +357,11 @@ public class KafkaBasedLog<K, V> {
                         // Only invoke exactly the number of callbacks we found before triggering the read to log end
                         // since it is possible for another write + readToEnd to sneak in in the meantime
                         for (int i = 0; i < numCallbacks; i++) {
+                            // repeat ReadToLogEnd, callback the function with the same counts
                             Callback<Void> cb = readLogEndOffsetCallbacks.poll();
                             cb.onCompletion(null, null);
                         }
+                        readLogEndOffsetCallbacks.clear();
                     }
 
                     try {

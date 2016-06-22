@@ -72,17 +72,27 @@ public class FileStreamSourceTask extends SourceTask {
             throw new ConnectException("FileStreamSourceTask config missing topic setting");
     }
 
+    /**
+     * Return one complete record from input stream, otherwise return null.
+     *
+     * Note that filtering \r this special windows label.
+     * @return
+     * @throws InterruptedException
+     */
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
         if (stream == null) {
             try {
+                // Open one input stream with the indicated file path
                 stream = new FileInputStream(filename);
+                // Get the last read track record and attempt to continue
                 Map<String, Object> offset = context.offsetStorageReader().offset(Collections.singletonMap(FILENAME_FIELD, filename));
                 if (offset != null) {
                     Object lastRecordedOffset = offset.get(POSITION_FIELD);
                     if (lastRecordedOffset != null && !(lastRecordedOffset instanceof Long))
                         throw new ConnectException("Offset position is the incorrect type");
                     if (lastRecordedOffset != null) {
+                        // Seek?
                         log.debug("Found previous offset, trying to skip to file offset {}", lastRecordedOffset);
                         long skipLeft = (Long) lastRecordedOffset;
                         while (skipLeft > 0) {
@@ -164,6 +174,10 @@ public class FileStreamSourceTask extends SourceTask {
         return null;
     }
 
+    /**
+     * Compatible with Windows and POSIX Linux
+     * @return
+     */
     private String extractLine() {
         int until = -1, newStart = -1;
         for (int i = 0; i < offset; i++) {

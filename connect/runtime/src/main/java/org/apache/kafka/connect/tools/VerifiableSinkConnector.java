@@ -43,6 +43,10 @@ public class VerifiableSinkConnector extends SourceConnector {
         this.config = props;
     }
 
+    /**
+     * get task implementation class for later task handling
+     * @return
+     */
     @Override
     public Class<? extends Task> taskClass() {
         return VerifiableSinkTask.class;

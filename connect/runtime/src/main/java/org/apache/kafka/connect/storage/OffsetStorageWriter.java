@@ -92,6 +92,7 @@ public class OffsetStorageWriter {
      * @param offset the offset
      */
     public synchronized void offset(Map<String, ?> partition, Map<String, ?> offset) {
+        // put into cache, not flushed
         data.put((Map<String, Object>) partition, (Map<String, Object>) offset);
     }
 
@@ -130,6 +131,7 @@ public class OffsetStorageWriter {
      * @return a Future, or null if there are no offsets to commitOffsets
      */
     public Future<Void> doFlush(final Callback<Void> callback) {
+        // flush transaction id to identify once write operation
         final long flushId = currentFlushId;
 
         // Serialize
@@ -176,6 +178,8 @@ public class OffsetStorageWriter {
      * Cancel a flush that has been initiated by {@link #beginFlush}. This should not be called if
      * {@link #doFlush} has already been invoked. It should be used if an operation performed
      * between beginFlush and doFlush failed.
+     *
+     * This action is just to revert all the internal status since some logic failed before real flush.
      */
     public synchronized void cancelFlush() {
         // Verify we're still flushing data to handle a race between cancelFlush() calls from up the
@@ -185,6 +189,8 @@ public class OffsetStorageWriter {
             toFlush.putAll(data);
             data = toFlush;
             currentFlushId++;
+            // better GC
+            toFlush.clear();
             toFlush = null;
         }
     }

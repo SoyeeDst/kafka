@@ -30,14 +30,18 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Implementation of OffsetBackingStore that doesn't actually persist any data. To ensure this
  * behaves similarly to a real backing store, operations are executed asynchronously on a
  * background thread.
+ *
+ * one background thread is mocked to sync up the offset with central repository.
  */
 public class MemoryOffsetBackingStore implements OffsetBackingStore {
     private static final Logger log = LoggerFactory.getLogger(MemoryOffsetBackingStore.class);
+    private AtomicBoolean open = new AtomicBoolean(false);
 
     protected Map<ByteBuffer, ByteBuffer> data = new HashMap<>();
     protected ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -52,11 +56,13 @@ public class MemoryOffsetBackingStore implements OffsetBackingStore {
 
     @Override
     public synchronized void start() {
+        open.compareAndSet(false, true);
     }
 
     @Override
     public synchronized void stop() {
         // Nothing to do since this doesn't maintain any outstanding connections/data
+        open.compareAndSet(true, false);
     }
 
     @Override

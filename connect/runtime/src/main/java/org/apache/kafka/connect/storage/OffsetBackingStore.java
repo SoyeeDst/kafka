@@ -66,6 +66,8 @@ public interface OffsetBackingStore {
      * @param values map from key to value
      * @param callback callback to invoke on completion
      * @return void future for the operation
+     *
+     * Bulk operations
      */
     public Future<Void> set(Map<ByteBuffer, ByteBuffer> values,
                             Callback<Void> callback);

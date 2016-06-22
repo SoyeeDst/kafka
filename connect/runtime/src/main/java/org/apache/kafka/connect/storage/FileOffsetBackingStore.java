@@ -38,6 +38,7 @@ import java.util.Map;
 /**
  * Implementation of OffsetBackingStore that saves data locally to a file. To ensure this behaves
  * similarly to a real backing store, operations are executed asynchronously on a background thread.
+ *
  */
 public class FileOffsetBackingStore extends MemoryOffsetBackingStore {
     private static final Logger log = LoggerFactory.getLogger(FileOffsetBackingStore.class);
@@ -91,6 +92,8 @@ public class FileOffsetBackingStore extends MemoryOffsetBackingStore {
         }
     }
 
+    // real IO access, reduce the performance
+    // once per second should not impact the performance very much.
     protected void save() {
         try {
             ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(file));

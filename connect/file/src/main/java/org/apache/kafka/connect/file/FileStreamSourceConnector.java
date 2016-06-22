@@ -71,6 +71,7 @@ public class FileStreamSourceConnector extends SourceConnector {
         // Only one input stream makes sense.
         Map<String, String> config = new HashMap<>();
         if (filename != null)
+            // if filename is empty, which implies we need to read data from standard input stream
             config.put(FILE_CONFIG, filename);
         config.put(TOPIC_CONFIG, topic);
         configs.add(config);

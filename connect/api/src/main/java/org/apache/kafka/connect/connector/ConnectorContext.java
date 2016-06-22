@@ -21,6 +21,8 @@ import org.apache.kafka.common.annotation.InterfaceStability;
 
 /**
  * ConnectorContext allows Connectors to proactively interact with the Kafka Connect runtime.
+ *
+ * This ConnectorContext can be considered as callback interface while some updates must be propagated to main Application.
  */
 @InterfaceStability.Unstable
 public interface ConnectorContext {

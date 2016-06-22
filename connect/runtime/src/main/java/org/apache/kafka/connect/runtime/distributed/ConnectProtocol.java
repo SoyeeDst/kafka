@@ -46,6 +46,7 @@ public class ConnectProtocol {
     public static final String ERROR_KEY_NAME = "error";
     public static final String TASKS_KEY_NAME = "tasks";
     public static final String ASSIGNMENT_KEY_NAME = "assignment";
+    // fake connector
     public static final int CONNECTOR_TASK = -1;
 
     public static final short CONNECT_PROTOCOL_V0 = 0;
@@ -76,6 +77,7 @@ public class ConnectProtocol {
         struct.set(URL_KEY_NAME, workerState.url());
         struct.set(CONFIG_OFFSET_KEY_NAME, workerState.offset());
         ByteBuffer buffer = ByteBuffer.allocate(CONNECT_PROTOCOL_HEADER_V0.sizeOf() + CONFIG_STATE_V0.sizeOf(struct));
+        // version information first and then concrete config state.
         CONNECT_PROTOCOL_HEADER_V0.writeTo(buffer);
         CONFIG_STATE_V0.write(buffer, struct);
         buffer.flip();
@@ -111,6 +113,7 @@ public class ConnectProtocol {
         ByteBuffer buffer = ByteBuffer.allocate(CONNECT_PROTOCOL_HEADER_V0.sizeOf() + ASSIGNMENT_V0.sizeOf(struct));
         CONNECT_PROTOCOL_HEADER_V0.writeTo(buffer);
         ASSIGNMENT_V0.write(buffer, struct);
+        // reset to the beginning of ByteBuffer
         buffer.flip();
         return buffer;
     }

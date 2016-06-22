@@ -45,6 +45,8 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * WorkerTask that uses a SourceTask to ingest data into Kafka.
+ *
+ * one worker could maintain several WorkerTask in parallel
  */
 class WorkerSourceTask extends WorkerTask {
     private static final Logger log = LoggerFactory.getLogger(WorkerSourceTask.class);

@@ -28,6 +28,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * This class ties together all the components of a Kafka Connect process (herder, worker,
  * storage, command interface), managing their lifecycle.
+ *
+ * Main bridge modules to build up the relationship of business handler and Jetty engine
+ * to hidden all the dependencies of modules
  */
 @InterfaceStability.Unstable
 public class Connect {
@@ -40,6 +43,7 @@ public class Connect {
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
     private final ShutdownHook shutdownHook;
 
+    // correlate RestServer and herder
     public Connect(Herder herder, RestServer rest) {
         log.debug("Kafka Connect instance created");
         this.herder = herder;
@@ -52,6 +56,7 @@ public class Connect {
             log.info("Kafka Connect starting");
             Runtime.getRuntime().addShutdownHook(shutdownHook);
 
+            // start handing engine
             herder.start();
             rest.start(herder);
 

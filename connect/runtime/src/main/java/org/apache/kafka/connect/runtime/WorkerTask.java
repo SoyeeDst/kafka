@@ -74,6 +74,7 @@ abstract class WorkerTask implements Runnable {
             this.stopping.set(true);
 
             // wakeup any threads that are waiting for unpause
+            // signal
             this.notifyAll();
         }
     }

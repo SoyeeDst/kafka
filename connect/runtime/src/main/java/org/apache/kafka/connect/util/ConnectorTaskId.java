@@ -25,6 +25,8 @@ import java.io.Serializable;
 /**
  * Unique ID for a single task. It includes a unique connector ID and a task ID that is unique within
  * the connector.
+ *
+ * this task id is exchanged with JSON format (probably)
  */
 public class ConnectorTaskId implements Serializable, Comparable<ConnectorTaskId> {
     private final String connector;

@@ -35,6 +35,8 @@ public class DistributedConfig extends WorkerConfig {
 
     /**
      * <code>group.id</code>
+     *
+     * Using same group id could share some status information among all workers
      */
     public static final String GROUP_ID_CONFIG = "group.id";
     private static final String GROUP_ID_DOC = "A unique string that identifies the Connect cluster group this worker belongs to.";

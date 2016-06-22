@@ -81,6 +81,7 @@ public class VerifiableSourceTask extends SourceTask {
         }
 
         partition = Collections.singletonMap(ID_FIELD, id);
+        // get original offset for resuming task where previous task left off
         Map<String, Object> previousOffset = this.context.offsetStorageReader().offset(partition);
         if (previousOffset != null)
             seqno = (Long) previousOffset.get(SEQNO_FIELD) + 1;
@@ -92,10 +93,16 @@ public class VerifiableSourceTask extends SourceTask {
         log.info("Started VerifiableSourceTask {}-{} producing to topic {} resuming from seqno {}", name, id, topic, startingSeqno);
     }
 
+    /**
+     * return all the SourceRecord currently for later pushing towards Kafka
+     * @return
+     * @throws InterruptedException
+     */
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
         long sendStartMs = System.currentTimeMillis();
         if (throttler.shouldThrottle(seqno - startingSeqno, sendStartMs))
+            // slow down the message transmission rate
             throttler.throttle();
 
         long nowMs = System.currentTimeMillis();
@@ -117,6 +124,7 @@ public class VerifiableSourceTask extends SourceTask {
         Map<String, Long> ccOffset = Collections.singletonMap(SEQNO_FIELD, seqno);
         SourceRecord srcRecord = new SourceRecord(partition, ccOffset, topic, Schema.INT32_SCHEMA, id, Schema.INT64_SCHEMA, seqno);
         List<SourceRecord> result = Arrays.asList(srcRecord);
+        // seqno is seen as an offset stored in the StorageReader
         seqno++;
         return result;
     }

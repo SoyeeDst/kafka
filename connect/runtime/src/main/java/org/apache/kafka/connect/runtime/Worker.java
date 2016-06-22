@@ -58,6 +58,9 @@ import java.util.concurrent.Executors;
  * <p>
  * Since each task has a dedicated thread, this is mainly just a container for them.
  * </p>
+ * <p>
+ * Runtime snapshot of connectors and tasks, tasks thread container and acts as task runner of backend stores.
+ * </p>
  */
 public class Worker {
     private static final Logger log = LoggerFactory.getLogger(Worker.class);
@@ -98,6 +101,7 @@ public class Worker {
         this.offsetBackingStore.configure(config);
     }
 
+    // start to config producer
     public void start() {
         log.info("Worker starting");
 
@@ -114,6 +118,7 @@ public class Worker {
         producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
         producerProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1");
 
+        // this action might override some specific configuration item above
         producerProps.putAll(config.originalsWithPrefix("producer."));
 
         producer = new KafkaProducer<>(producerProps);
@@ -156,8 +161,8 @@ public class Worker {
      * @param connConfig connector configuration
      * @param ctx context for the connector
      * @param statusListener listener for notifications of connector status changes
-     * @param initialState the initial target state that the connector should be initialized to
-     */
+    * @param initialState the initial target state that the connector should be initialized to
+    */
     public void startConnector(ConnectorConfig connConfig,
                                ConnectorContext ctx,
                                ConnectorStatus.Listener statusListener,

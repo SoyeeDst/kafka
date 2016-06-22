@@ -116,6 +116,7 @@ public abstract class SinkTask implements Task {
 
     /**
      * @deprecated Use {@link #open(Collection)} for partition initialization.
+     * PartitionReAssigned events should be triggered by RebalanceListener
      */
     @Deprecated
     public void onPartitionsAssigned(Collection<TopicPartition> partitions) {

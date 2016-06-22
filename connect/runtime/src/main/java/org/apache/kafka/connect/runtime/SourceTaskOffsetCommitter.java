@@ -45,6 +45,7 @@ class SourceTaskOffsetCommitter {
     private static final Logger log = LoggerFactory.getLogger(SourceTaskOffsetCommitter.class);
 
     private WorkerConfig config;
+    // the scheduled executor service just try its best to schedule time event
     private ScheduledExecutorService commitExecutorService = null;
     private final HashMap<ConnectorTaskId, ScheduledCommitTask> committers = new HashMap<>();
 
@@ -54,6 +55,7 @@ class SourceTaskOffsetCommitter {
     }
 
     public void close(long timeoutMs) {
+        // do not accept any new task any more
         commitExecutorService.shutdown();
         try {
             if (!commitExecutorService.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS)) {
@@ -64,6 +66,7 @@ class SourceTaskOffsetCommitter {
         }
     }
 
+    // ConnectorTaskId should identify one unique workerTask at the same time
     public void schedule(final ConnectorTaskId id, final WorkerSourceTask workerTask) {
         synchronized (committers) {
             long commitIntervalMs = config.getLong(WorkerConfig.OFFSET_COMMIT_INTERVAL_MS_CONFIG);
@@ -84,6 +87,7 @@ class SourceTaskOffsetCommitter {
             task.cancelled = true;
             task.commitFuture.cancel(false);
         }
+        // the committer task is working, we need to wait until finished
         if (task.finishedLatch != null) {
             try {
                 task.finishedLatch.await();
@@ -104,6 +108,7 @@ class SourceTaskOffsetCommitter {
 
         try {
             log.debug("Committing offsets for {}", workerTask);
+            // commitOffset
             boolean success = workerTask.commitOffsets();
             if (!success) {
                 log.error("Failed to commit offsets for {}", workerTask);

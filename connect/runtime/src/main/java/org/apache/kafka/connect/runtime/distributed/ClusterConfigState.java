@@ -29,6 +29,9 @@ import java.util.Set;
 
 /**
  * An immutable snapshot of the configuration state of connectors and tasks in a Kafka Connect cluster.
+ * stored in one compacted topic in Kafka broker
+ *
+ * it can be retrieved by external app and decide how to act next, which is also a presentation of currently working config
  */
 public class ClusterConfigState {
     public static final long NO_OFFSET = -1;
@@ -47,6 +50,10 @@ public class ClusterConfigState {
     private final Map<ConnectorTaskId, Map<String, String>> taskConfigs;
     private final Set<String> inconsistentConnectors;
 
+    // snapshot of the whole connector cluster
+    // read from storage store
+    // ConnectorTaskId should be maintained by storage store, otherwise some vacant field will be found.
+    // like 1 2 3 4 5, then remove 3, it should becomes into 1 2 3 4, not 1, 2, 4, 5
     public ClusterConfigState(long offset,
                               Map<String, Integer> connectorTaskCounts,
                               Map<String, Map<String, String>> connectorConfigs,
@@ -163,7 +170,7 @@ public class ClusterConfigState {
      * partially completed writes combined with log compaction.
      *
      * Connectors in this set will appear in the output of {@link #connectors()} since their connector configuration is
-     * available, but not in the output of {@link #taskConfig(ConnectorTaskId)} since the task configs are incomplete.
+     * available, but not in the output of {@link #taskConfig(ConnectorTaskId)} since the task configs are incomplete, which is not officially applied by logic
      *
      * When a worker detects a connector in this state, it should request that the connector regenerate its task
      * configurations.

@@ -76,6 +76,10 @@ public class FileStreamSinkTask extends SinkTask {
         }
     }
 
+    /**
+     * Flush data in buffer to disk if necessary
+     * @param offsets mapping of TopicPartition to committed offset
+     */
     @Override
     public void flush(Map<TopicPartition, OffsetAndMetadata> offsets) {
         log.trace("Flushing output stream for {}", logFilename());

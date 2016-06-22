@@ -74,6 +74,9 @@ public abstract class Connector {
      * an updated set of configurations and update the running Tasks appropriately. However, Connectors should
      * implement special handling of this case if it will avoid unnecessary changes to running Tasks.
      * </p>
+     * <p>
+     * This method needs to be overrided in subclasses to immerse special handling logic because of different task
+     * </p>
      *
      * @param ctx context object used to interact with the Kafka Connect runtime
      * @param taskConfigs existing task configurations, which may be used when generating new task configs to avoid

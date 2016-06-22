@@ -78,11 +78,15 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class AbstractHerder implements Herder, TaskStatus.Listener, ConnectorStatus.Listener {
 
     private final String workerId;
+    // One worker can be a container of multi tasks
     protected final Worker worker;
+    // Worker is only used in this Herder layer, any backend store could not feel it.
     protected final StatusBackingStore statusBackingStore;
     protected final ConfigBackingStore configBackingStore;
 
     private Map<String, Connector> tempConnectors = new ConcurrentHashMap<>();
+    // third party class to instantiate the ConnectorPluginInfo
+    // read it from Jar or properties
     private static List<ConnectorPluginInfo> validConnectorPlugins;
     private static final Object LOCK = new Object();
     private Thread classPathTraverser;
@@ -229,7 +233,7 @@ public abstract class AbstractHerder implements Herder, TaskStatus.Listener, Con
                 status.workerId(), status.trace());
     }
 
-
+    // validate configs and return all related ConfigInfos
     @Override
     public ConfigInfos validateConfigs(String connType, Map<String, String> connectorConfig) {
         ConfigDef connectorConfigDef = ConnectorConfig.configDef();
@@ -258,6 +262,7 @@ public abstract class AbstractHerder implements Herder, TaskStatus.Listener, Con
         return generateResult(connType, resultConfigKeys, configValues, allGroups);
     }
 
+    // parse ConnectorPluginInfo at the start up
     public static List<ConnectorPluginInfo> connectorPlugins() {
         synchronized (LOCK) {
             if (validConnectorPlugins != null) {
@@ -371,6 +376,7 @@ public abstract class AbstractHerder implements Herder, TaskStatus.Listener, Con
     }
 
     private void traverseClassPath() {
+
         classPathTraverser = new Thread(new Runnable() {
             @Override
             public void run() {

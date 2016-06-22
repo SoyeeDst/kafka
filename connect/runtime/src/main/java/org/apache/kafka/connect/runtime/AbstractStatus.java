@@ -30,6 +30,7 @@ public abstract class AbstractStatus<T> {
     private final State state;
     private final String trace;
     private final String workerId;
+    // for heartbeat
     private final int generation;
 
     public AbstractStatus(T id,

@@ -46,11 +46,14 @@ import java.util.Map;
 
 /**
  * Single process, in-memory "herder". Useful for a standalone Kafka Connect process.
+ *
+ * Data is only retained in memory and will not keep any intermediate information
  */
 public class StandaloneHerder extends AbstractHerder {
     private static final Logger log = LoggerFactory.getLogger(StandaloneHerder.class);
 
     private ClusterConfigState configState;
+
 
     public StandaloneHerder(Worker worker) {
         this(worker, worker.workerId(), new MemoryStatusBackingStore(), new MemoryConfigBackingStore());
@@ -63,6 +66,7 @@ public class StandaloneHerder extends AbstractHerder {
                      MemoryConfigBackingStore configBackingStore) {
         super(worker, workerId, statusBackingStore, configBackingStore);
         this.configState = ClusterConfigState.EMPTY;
+        // will be notified while configuration is changed
         configBackingStore.setUpdateListener(new ConfigUpdateListener());
     }
 
@@ -86,6 +90,7 @@ public class StandaloneHerder extends AbstractHerder {
                 log.error("Error shutting down connector {}: ", connName, e);
             }
         }
+        // stop backend service and classpath traverse thread.
         stopServices();
         log.info("Herder stopped");
     }
@@ -100,8 +105,10 @@ public class StandaloneHerder extends AbstractHerder {
         callback.onCompletion(null, configState.connectors());
     }
 
+    // connectorInfo can be made up of connName, connectorConfig and multi task configs.
     @Override
     public synchronized void connectorInfo(String connName, Callback<ConnectorInfo> callback) {
+        // async approach to reduce wait time
         ConnectorInfo connectorInfo = createConnectorInfo(connName);
         if (connectorInfo == null) {
             callback.onCompletion(new NotFoundException("Connector " + connName + " not found"), null);
@@ -149,6 +156,7 @@ public class StandaloneHerder extends AbstractHerder {
                 worker.stopConnector(connName);
                 if (config == null) {
                     configBackingStore.removeConnectorConfig(connName);
+                    // impact status store
                     onDeletion(connName);
                 }
             } else {
@@ -160,6 +168,7 @@ public class StandaloneHerder extends AbstractHerder {
                 created = true;
             }
             if (config != null) {
+                // refresh the configuration via restart
                 startConnector(config);
                 updateConnectorTasks(connName);
             }
@@ -244,6 +253,7 @@ public class StandaloneHerder extends AbstractHerder {
     private String startConnector(Map<String, String> connectorProps) {
         ConnectorConfig connConfig = new ConnectorConfig(connectorProps);
         String connName = connConfig.getString(ConnectorConfig.NAME_CONFIG);
+        // update config to store
         configBackingStore.putConnectorConfig(connName, connectorProps);
         TargetState targetState = configState.targetState(connName);
         worker.startConnector(connConfig, new HerderConnectorContext(this, connName), this, targetState);
@@ -267,6 +277,7 @@ public class StandaloneHerder extends AbstractHerder {
     }
 
     private void createConnectorTasks(String connName, TargetState initialState) {
+        // loop to create one task in the worker of current context
         for (ConnectorTaskId taskId : configState.tasks(connName)) {
             Map<String, String> taskConfigMap = configState.taskConfig(taskId);
             TaskConfig config = new TaskConfig(taskConfigMap);
@@ -281,6 +292,7 @@ public class StandaloneHerder extends AbstractHerder {
         }
     }
 
+    // remove all the tasks belongs to indicated connName
     private void removeConnectorTasks(String connName) {
         Collection<ConnectorTaskId> tasks = configState.tasks(connName);
         if (!tasks.isEmpty()) {
@@ -291,6 +303,7 @@ public class StandaloneHerder extends AbstractHerder {
     }
 
     private void updateConnectorTasks(String connName) {
+        // check connector status
         if (!worker.isRunning(connName)) {
             log.info("Skipping reconfiguration of connector {} since it is not running", connName);
             return;

@@ -45,6 +45,8 @@ public class VerifiableSinkTask extends SinkTask {
     private String name; // Connector name
     private int id; // Task ID
 
+    // cached objects to reduce IO operation rounds
+    // obviously one backend thread should be started
     private ArrayList<Map<String, Object>> unflushed = new ArrayList<>();
 
     @Override
