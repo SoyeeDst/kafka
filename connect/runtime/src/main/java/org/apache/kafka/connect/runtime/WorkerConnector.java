@@ -158,6 +158,7 @@ public class WorkerConnector {
 
     public void shutdown() {
         try {
+            // stop connector should be implemented by 3rd party provider.
             if (state == State.STARTED)
                 connector.stop();
             this.state = State.STOPPED;

@@ -106,6 +106,7 @@ public abstract class AbstractHerder implements Herder, TaskStatus.Listener, Con
 
     protected void startServices() {
         this.worker.start();
+        // The stores can be used to retain some worker/connectors/task information
         this.statusBackingStore.start();
         this.configBackingStore.start();
         traverseClassPath();

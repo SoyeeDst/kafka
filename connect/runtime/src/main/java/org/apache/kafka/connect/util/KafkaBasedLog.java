@@ -69,6 +69,7 @@ import static java.util.Collections.singleton;
  *     and only reads it in {@link #readToEnd(Callback)} callbacks then no additional synchronization will be required.
  * </p>
  */
+// This class is generally used to build up intermediate bridge towards Kafka brokers.
 public class KafkaBasedLog<K, V> {
     private static final Logger log = LoggerFactory.getLogger(KafkaBasedLog.class);
     private static final long CREATE_TOPIC_TIMEOUT_MS = 30000;

@@ -106,6 +106,7 @@ public class StandaloneHerder extends AbstractHerder {
     }
 
     // connectorInfo can be made up of connName, connectorConfig and multi task configs.
+    // asyncly obtain the connectorInfo via callback function
     @Override
     public synchronized void connectorInfo(String connName, Callback<ConnectorInfo> callback) {
         // async approach to reduce wait time
@@ -140,6 +141,7 @@ public class StandaloneHerder extends AbstractHerder {
     }
 
     @Override
+    // refresh task config, if previously existing, disable it before using new one.
     public synchronized void putConnectorConfig(String connName,
                                                 final Map<String, String> config,
                                                 boolean allowReplace,
@@ -256,6 +258,7 @@ public class StandaloneHerder extends AbstractHerder {
         // update config to store
         configBackingStore.putConnectorConfig(connName, connectorProps);
         TargetState targetState = configState.targetState(connName);
+        // start the connector to the original target state
         worker.startConnector(connConfig, new HerderConnectorContext(this, connName), this, targetState);
         return connName;
     }
@@ -313,7 +316,9 @@ public class StandaloneHerder extends AbstractHerder {
         Map<ConnectorTaskId, Map<String, String>> oldTaskConfigs = configState.allTaskConfigs(connName);
 
         if (!newTaskConfigs.equals(oldTaskConfigs)) {
+            // stop connector tasks and remove all the profiles.
             removeConnectorTasks(connName);
+            // persist the profiles into store
             configBackingStore.putTaskConfigs(connName, newTaskConfigs);
             createConnectorTasks(connName, configState.targetState(connName));
         }
